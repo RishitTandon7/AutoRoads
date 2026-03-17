@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OpenROAD GUI — AutoROAD Visualizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #1e1e1e;
+      --panel:    #252526;
+      --border:   #3c3c3c;
+      --accent:   #0078d4;
+      --gold:     #c5a059;
+      --text:     #cccccc;
+      --text-dim: #858585;
+      --canvas-bg:#2d2d2d;
+      --green:    #6a9955;
+      --red:      #f44747;
+      --orange:   #ce9178;
+      --yellow:   #dcdcaa;
+      --toolbar:  #3c3c3c;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text); }
+
+    /* ── TOP MENU BAR ── */
+    .menu-bar {
+      height: 28px; background: #323233; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 8px; gap: 2px;
+      position: relative; z-index: 100;
+    }
+    .menu-title {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      font-size: 11px; color: var(--text-dim); letter-spacing: 0.5px;
+    }
+    .menu-btn {
+      padding: 2px 10px; font-size: 12px; color: var(--text); background: none;
+      border: none; cursor: pointer; border-radius: 3px; font-family: inherit;
+    }
+    .menu-btn:hover { background: rgba(255,255,255,0.1); }
+    .win-controls { margin-left: auto; display: flex; gap: 0; }
+    .wcb {
+      width: 46px; height: 28px; border: none; background: none;
+      font-size: 13px; color: var(--text-dim); cursor: pointer;
+    }
+    .wcb:hover { background: rgba(255,255,255,0.1); }
+    .wcb.close:hover { background: #e81123; color: #fff; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      height: 32px; background: var(--panel); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 10px; gap: 16px;
+    }
+    .tb-btn {
+      padding: 3px 12px; font-size: 11.5px; color: var(--text);
+      background: none; border: 1px solid transparent; cursor: pointer;
+      border-radius: 3px; font-family: inherit; font-weight: 500;
+    }
+    .tb-btn:hover { border-color: var(--border); background: rgba(255,255,255,0.07); }
+    .tb-sep { width: 1px; height: 18px; background: var(--border); }
+
+    /* ── MAIN LAYOUT ── */
+    .layout {
+      display: flex; height: calc(100vh - 28px - 32px - 28px);
+    }
+
+    /* ── LEFT PANEL: Display Control ── */
+    .left-panel {
+      width: 210px; min-width: 170px; background: var(--panel);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 5px 10px; font-size: 11px; font-weight: 600;
+      color: var(--text-dim); background: #2a2a2b;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-icons { display: flex; gap: 6px; }
+    .panel-icon { width: 14px; height: 14px; border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 9px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
+    .panel-icon:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+    .tree-scroll { overflow-y: auto; flex: 1; padding: 4px 0; }
+    .tree-scroll::-webkit-scrollbar { width: 6px; }
+    .tree-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+    .tree-row {
+      display: flex; align-items: center; height: 20px; padding: 0 6px;
+      cursor: pointer; user-select: none;
+    }
+    .tree-row:hover { background: rgba(255,255,255,0.05); }
+    .tree-row.active { background: rgba(0,120,212,0.2); }
+    .tree-arrow { width: 14px; font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
+    .tree-swatch { width: 10px; height: 10px; border-radius: 1px; margin-right: 5px; flex-shrink: 0; }
+    .tree-label { flex: 1; font-size: 11px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-cb { width: 12px; height: 12px; margin-left: 3px; accent-color: var(--accent); flex-shrink: 0; }
+    .tree-sub { padding-left: 20px; }
+
+    /* ── CENTER CANVAS ── */
+    .center { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--canvas-bg); position: relative; }
+
+    /* View tabs */
+    .view-tabs {
+      display: flex; background: #2a2a2b; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .view-tab {
+      padding: 5px 14px; font-size: 11px; color: var(--text-dim); cursor: pointer;
+      border-right: 1px solid var(--border); background: none; border-top: none; border-left: none; border-bottom: none;
+      position: relative; font-family: inherit;
+    }
+    .view-tab.active { color: var(--text); background: var(--canvas-bg); }
+    .view-tab.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
+    .view-tab:hover:not(.active) { background: rgba(255,255,255,0.05); }
+
+    /* Canvas wrapper */
+    .canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+    #chipCanvas { display: block; image-rendering: crisp-edges; }
+
+    /* Ruler hints */
+    .ruler-top { position: absolute; top: 0; left: 0; right: 0; height: 16px; background: #252526; border-bottom: 1px solid var(--border); pointer-events: none; overflow: hidden; }
+    .ruler-left { position: absolute; top: 16px; left: 0; bottom: 0; width: 16px; background: #252526; border-right: 1px solid var(--border); pointer-events: none; }
+
+    /* ── RIGHT PANEL: Hierarchy Browser ── */
+    .right-panel {
+      width: 320px; min-width: 240px; background: var(--panel);
+      border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .hierarchy-disabled {
+      padding: 6px; background: #3c1a1a; border-bottom: 1px solid #6b2929;
+      font-size: 10px; color: #f44747; text-align: center;
+    }
+    .hier-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .hier-table th { padding: 3px 8px; text-align: left; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--border); background: #2a2a2b; position: sticky; top: 0; }
+    .hier-table td { padding: 2px 8px; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .hier-table tr:hover td { background: rgba(255,255,255,0.04); }
+    .hier-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 1px; margin-right: 4px; vertical-align: middle; }
+    .hier-scroll { overflow-y: auto; flex: 1; }
+    .hier-scroll::-webkit-scrollbar { width: 5px; }
+    .hier-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+    /* ── BOTTOM TABS ── */
+    .bottom-tabs {
+      height: 28px; background: #2a2a2b; border-top: 1px solid var(--border);
+      display: flex; align-items: flex-end; padding: 0 10px; gap: 2px;
+      flex-shrink: 0;
+    }
+    .btab {
+      padding: 4px 14px; font-size: 11px; color: var(--text-dim); cursor: pointer;
+      background: none; border: none; font-family: inherit; border-top: 2px solid transparent;
+    }
+    .btab.active { color: var(--text); border-top-color: var(--accent); background: var(--panel); }
+    .btab:hover:not(.active) { color: var(--text); }
+
+    /* ── SCRIPTING CONSOLE ── */
+    .scripting {
+      height: 110px; background: #1a1a1a; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .scripting-header {
+      padding: 3px 10px; font-size: 11px; font-weight: 600; color: var(--text-dim);
+      background: #252526; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between;
+    }
+    .scripting-output {
+      flex: 1; overflow-y: auto; padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6;
+    }
+    .scripting-output::-webkit-scrollbar { width: 5px; }
+    .scripting-output::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+    .log-normal { color: #cccccc; }
+    .log-warn   { color: #ce9178; }
+    .log-info   { color: #9cdcfe; }
+    .scripting-input {
+      display: flex; align-items: center; border-top: 1px solid var(--border);
+      padding: 0 8px; gap: 6px; background: #1e1e1e;
+    }
+    .tcl-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+    #tclInput {
+      flex: 1; background: none; border: none; color: var(--text);
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; outline: none; padding: 4px 0;
+    }
+    .run-btn {
+      padding: 2px 10px; background: var(--accent); color: #fff; border: none;
+      border-radius: 3px; font-size: 11px; cursor: pointer; font-family: inherit;
+    }
+    .run-btn:hover { background: #106ebe; }
+
+    /* Status bar */
+    .status-bar {
+      height: 22px; background: var(--accent); display: flex; align-items: center;
+      padding: 0 12px; gap: 16px; flex-shrink: 0;
+    }
+    .status-item { font-size: 11px; color: rgba(255,255,255,0.85); }
+    .status-item.right { margin-left: auto; }
+
+    /* Tooltip overlay on canvas */
+    #canvasTooltip {
+      position: absolute; background: rgba(30,30,30,0.95); border: 1px solid var(--border);
+      padding: 4px 8px; font-size: 11px; color: var(--text); border-radius: 3px;
+      pointer-events: none; display: none; z-index: 50;
+    }
+
+    /* Animate log lines */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+    .log-line { animation: fadeIn 0.25s ease; }
+  </style>
+</head>
+<body>
+
+<!-- ── MENU BAR ── -->
+<div class="menu-bar">
+  <button class="menu-btn">File</button>
+  <button class="menu-btn">View</button>
+  <button class="menu-btn">Tools</button>
+  <button class="menu-btn">Windows</button>
+  <button class="menu-btn">Options</button>
+  <button class="menu-btn">Help</button>
+  <span class="menu-title">OpenROAD</span>
+  <div class="win-controls">
+    <button class="wcb">—</button>
+    <button class="wcb">⬜</button>
+    <button class="wcb close">✕</button>
+  </div>
+</div>
+
+<!-- ── TOOLBAR ── -->
+<div class="toolbar">
+  <button class="tb-btn">Fit</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn">Find</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn">Inspect</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn">Timing</button>
+  <div class="tb-sep"></div>
+  <!-- View selector -->
+  <span style="color:var(--text-dim);font-size:11px;">View:</span>
+  <button class="tb-btn" id="btnFloorplan" onclick="setView('floorplan')" style="border-color:var(--accent);color:var(--accent)">Floorplan</button>
+  <button class="tb-btn" id="btnMacro"     onclick="setView('macro')">Macro Placement</button>
+  <button class="tb-btn" id="btnHeatmap"   onclick="setView('heatmap')">Placement Density</button>
+  <button class="tb-btn" id="btnCTS"       onclick="setView('cts')">CTS</button>
+</div>
+
+<!-- ── MAIN LAYOUT ── -->
+<div class="layout">
+
+  <!-- Left: Display Control -->
+  <div class="left-panel">
+    <div class="panel-header">
+      Display Control
+      <div class="panel-icons">
+        <div class="panel-icon">◈</div>
+        <div class="panel-icon" title="Pin">×</div>
+      </div>
+    </div>
+    <div class="tree-scroll">
+      <!-- Layers -->
+      <div class="tree-row" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <span class="tree-arrow">▼</span>
+        <span class="tree-label" style="font-weight:600">Layers</span>
+      </div>
+      <div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#e06060"></span><span class="tree-label">li1</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#556b2f"></span><span class="tree-label">mcon</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#4169e1"></span><span class="tree-label">met1</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#9370db"></span><span class="tree-label">via</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#20b2aa"></span><span class="tree-label">met2</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#ff8c00"></span><span class="tree-label">via2</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#ffd700"></span><span class="tree-label">met3</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#ff69b4"></span><span class="tree-label">via3</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#7b68ee"></span><span class="tree-label">met4</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-swatch" style="background:#00ced1"></span><span class="tree-label">met5</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+      </div>
+      <!-- Nets -->
+      <div class="tree-row">
+        <span class="tree-arrow">▶</span>
+        <span class="tree-label" style="font-weight:600">Nets</span>
+        <input type="checkbox" class="tree-cb" checked/>
+        <input type="checkbox" class="tree-cb" checked/>
+      </div>
+      <!-- Instances -->
+      <div class="tree-row">
+        <span class="tree-arrow">▶</span>
+        <span class="tree-label" style="font-weight:600">Instances</span>
+        <input type="checkbox" class="tree-cb" checked/>
+        <input type="checkbox" class="tree-cb" checked/>
+      </div>
+      <!-- Blockages -->
+      <div class="tree-row">
+        <span class="tree-arrow">▶</span>
+        <span class="tree-label" style="font-weight:600">Blockages</span>
+        <input type="checkbox" class="tree-cb" checked/>
+        <input type="checkbox" class="tree-cb" checked/>
+      </div>
+      <!-- Rulers -->
+      <div class="tree-row">
+        <span class="tree-arrow"></span>
+        <span class="tree-swatch" style="background:#00bfff"></span>
+        <span class="tree-label">Rulers</span>
+        <input type="checkbox" class="tree-cb" checked/>
+        <input type="checkbox" class="tree-cb" checked/>
+      </div>
+      <!-- Rows / Tracks / Misc -->
+      <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-label" style="font-weight:600">Rows</span><input type="checkbox" class="tree-cb" checked/><input type="checkbox" class="tree-cb" checked/></div>
+      <div class="tree-row"><span class="tree-arrow"></span><span class="tree-label" style="padding-left:14px">Pin Markers</span><input type="checkbox" class="tree-cb" checked/></div>
+      <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-label" style="font-weight:600">Tracks</span><input type="checkbox" class="tree-cb"/></div>
+      <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-label" style="font-weight:600">Misc</span><input type="checkbox" class="tree-cb"/><input type="checkbox" class="tree-cb" checked/></div>
+      <div class="tree-row"><span class="tree-arrow"></span><span class="tree-label" style="padding-left:14px">Timing Path</span><input type="checkbox" class="tree-cb" checked/></div>
+      <!-- Heat Maps -->
+      <div class="tree-row" id="heatMapRow" onclick="toggleHeatmaps()">
+        <span class="tree-arrow" id="heatArrow">▶</span>
+        <span class="tree-label" style="font-weight:600">Heat Maps</span>
+        <input type="checkbox" class="tree-cb"/>
+      </div>
+      <div id="heatmapSub" style="display:none">
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-label">Placement Density</span><input type="checkbox" class="tree-cb" id="cbPlaceDensity" onchange="setView('heatmap')"/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-label">Power Density</span><input type="checkbox" class="tree-cb"/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-label">Routing Congestion</span><input type="checkbox" class="tree-cb"/></div>
+        <div class="tree-row tree-sub"><span class="tree-arrow"></span><span class="tree-label">IR Drop</span><input type="checkbox" class="tree-cb"/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Canvas -->
+  <div class="center">
+    <div class="view-tabs">
+      <button class="view-tab active" id="tab-floorplan" onclick="setView('floorplan')">Floorplan</button>
+      <button class="view-tab" id="tab-macro"     onclick="setView('macro')">Macro Placement</button>
+      <button class="view-tab" id="tab-heatmap"   onclick="setView('heatmap')">Placement Density</button>
+      <button class="view-tab" id="tab-cts"        onclick="setView('cts')">CTS</button>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="chipCanvas"></canvas>
+      <div id="canvasTooltip"></div>
+    </div>
+  </div>
+
+  <!-- Right: Hierarchy Browser -->
+  <div class="right-panel">
+    <div class="panel-header">
+      Hierarchy Browser
+      <div class="panel-icons">
+        <div class="panel-icon">◈</div>
+        <div class="panel-icon">×</div>
+      </div>
+    </div>
+    <div class="hierarchy-disabled">Module view is not enabled</div>
+    <div class="hier-scroll">
+      <table class="hier-table">
+        <thead>
+          <tr>
+            <th>Instance</th>
+            <th>Master</th>
+            <th>Instances</th>
+            <th>Macros</th>
+            <th>Modules</th>
+          </tr>
+        </thead>
+        <tbody id="hierBody"></tbody>
+      </table>
+    </div>
+    <!-- Clock Tree panel (shown in CTS view) -->
+    <div id="clockTreePanel" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+      <div class="panel-header">Clock Tree Viewer</div>
+      <div style="display:flex;align-items:center;padding:6px 8px;gap:8px;border-bottom:1px solid var(--border)">
+        <select style="background:#3c3c3c;color:var(--text);border:1px solid var(--border);padding:2px 6px;font-size:11px;border-radius:3px;font-family:inherit">
+          <option>default</option><option>core_clock</option>
+        </select>
+        <button onclick="updateClockTree()" style="padding:2px 10px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-size:11px;font-family:inherit;cursor:pointer">Update</button>
+      </div>
+      <div style="padding:8px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600">core_clock</div>
+      <canvas id="clockTreeCanvas" width="300" height="220" style="display:block;margin:0 auto"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── BOTTOM TABS ── -->
+<div class="bottom-tabs">
+  <button class="btab" id="btab-drc">DRC Vi...</button>
+  <button class="btab" id="btab-insp">Inspe...</button>
+  <button class="btab" id="btab-timing">Timing Re...</button>
+  <button class="btab active" id="btab-hier">Hierarchy Brow...</button>
+  <button class="btab" id="btab-clock" onclick="toggleClockTreeTab()">Clock Tree Vie...</button>
+</div>
+
+<!-- ── SCRIPTING CONSOLE ── -->
+<div class="scripting">
+  <div class="scripting-header">
+    Scripting
+    <div class="panel-icons">
+      <div class="panel-icon">◈</div>
+      <div class="panel-icon">×</div>
+    </div>
+  </div>
+  <div class="scripting-output" id="scriptOutput"></div>
+  <div class="scripting-input">
+    <span class="tcl-label">idle</span>
+    <span style="color:var(--border);margin:0 2px">|</span>
+    <input id="tclInput" placeholder="TCL commands" onkeydown="handleTcl(event)"/>
+    <button class="run-btn" onclick="runTcl()">Run</button>
+  </div>
+</div>
+
+<!-- ── STATUS BAR ── -->
+<div class="status-bar">
+  <span class="status-item" id="statusView">● Floorplan</span>
+  <span class="status-item">ibex_core · sky130hd</span>
+  <span class="status-item">14,335 instances</span>
+  <span class="status-item right" id="statusCoords">x: 0  y: 0</span>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   OpenROAD GUI Simulator — Canvas Renderer
+   Views: Floorplan | Macro | Heatmap | CTS
+═══════════════════════════════════════════════ */
+
+const canvas  = document.getElementById('chipCanvas');
+const ctx     = canvas.getContext('2d');
+const wrap    = document.getElementById('canvasWrap');
+let   currentView = 'floorplan';
+let   animFrame   = null;
+let   tick        = 0;
+
+// ── Resize canvas to fill wrapper ──────────────
+function resizeCanvas() {
+  const r = wrap.getBoundingClientRect();
+  canvas.width  = r.width  - 32;
+  canvas.height = r.height - 32;
+  drawView();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ── View switcher ──────────────────────────────
+function setView(v) {
+  currentView = v;
+  // tab highlights
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('tab-' + v);
+  if (tab) tab.classList.add('active');
+  // toolbar highlights
+  ['btnFloorplan','btnMacro','btnHeatmap','btnCTS'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.borderColor = ''; b.style.color = ''; }
+  });
+  const map = { floorplan:'btnFloorplan', macro:'btnMacro', heatmap:'btnHeatmap', cts:'btnCTS' };
+  const ab = document.getElementById(map[v]);
+  if (ab) { ab.style.borderColor = '#0078d4'; ab.style.color = '#0078d4'; }
+
+  // status
+  const labels = { floorplan:'● Floorplan', macro:'● Macro Placement', heatmap:'● Placement Density', cts:'● CTS' };
+  document.getElementById('statusView').textContent = labels[v] || v;
+
+  // clock tree panel
+  const ctp = document.getElementById('clockTreePanel');
+  const hs  = document.querySelector('.hier-scroll');
+  if (v === 'cts') {
+    ctp.style.display = 'flex'; hs.style.display = 'none';
+    setTimeout(drawClockTree, 50);
+  } else {
+    ctp.style.display = 'none'; hs.style.display = '';
+  }
+
+  // update hierarchy table
+  buildHierarchy(v);
+  cancelAnimationFrame(animFrame);
+  if (v === 'cts') { animateCTS(); } else { drawView(); }
+}
+
+// ── Main draw dispatcher ───────────────────────
+function drawView() {
+  if (!canvas.width) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if      (currentView === 'floorplan') drawFloorplan();
+  else if (currentView === 'macro')     drawMacro();
+  else if (currentView === 'heatmap')   drawHeatmap();
+  else if (currentView === 'cts')       drawCTS(tick);
+}
+
+// ═══════════════ FLOORPLAN VIEW ═══════════════
+function drawFloorplan() {
+  const W = canvas.width, H = canvas.height;
+  const pad = 24, cw = W - 2*pad, ch = H - 2*pad;
+
+  // background
+  ctx.fillStyle = '#c8c8c8';
+  ctx.fillRect(0, 0, W, H);
+
+  // die area (green border)
+  ctx.strokeStyle = '#00aa00';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(pad, pad, cw, ch);
+
+  // row fill (red crosshatch effect)
+  const cols = 48, rows = 38;
+  const cw2 = cw / cols, ch2 = ch / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(200,60,60,0.55)' : 'rgba(200,60,60,0.3)';
+      ctx.fillRect(pad + c * cw2 + 0.5, pad + r * ch2 + 0.5, cw2 - 1, ch2 - 1);
+    }
+  }
+
+  // grid lines (horizontal)
+  ctx.strokeStyle = 'rgba(180,50,50,0.6)';
+  ctx.lineWidth = 0.5;
+  for (let r = 0; r <= rows; r++) {
+    ctx.beginPath();
+    ctx.moveTo(pad, pad + r * ch2);
+    ctx.lineTo(pad + cw, pad + r * ch2);
+    ctx.stroke();
+  }
+  // grid lines (vertical)
+  for (let c = 0; c <= cols; c++) {
+    ctx.beginPath();
+    ctx.moveTo(pad + c * cw2, pad);
+    ctx.lineTo(pad + c * cw2, pad + ch);
+    ctx.stroke();
+  }
+
+  // pin markers (green teeth on border)
+  ctx.fillStyle = '#00cc00';
+  for (let c = 0; c < cols; c++) {
+    const x = pad + c * cw2 + cw2 / 2;
+    ctx.fillRect(x - 2, pad - 6, 4, 6);
+    ctx.fillRect(x - 2, pad + ch, 4, 6);
+  }
+
+  // die border label
+  ctx.fillStyle = 'rgba(0,150,0,0.6)';
+  ctx.font = '10px Inter';
+  ctx.fillText('die area', pad + 4, pad + 14);
+}
+
+// ═══════════════ MACRO PLACEMENT VIEW ═══════════════
+function drawMacro() {
+  const W = canvas.width, H = canvas.height;
+  const pad = 20, cw = W - 2*pad, ch = H - 2*pad;
+
+  // background
+  ctx.fillStyle = '#d0d0d0';
+  ctx.fillRect(0, 0, W, H);
+
+  // die boundary
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(pad, pad, cw, ch);
+
+  // macro blocks (light green rectangles)
+  const macros = [
+    [0.05,0.05,0.18,0.12],[0.25,0.05,0.18,0.12],[0.50,0.05,0.18,0.12],[0.72,0.05,0.18,0.08],
+    [0.05,0.20,0.20,0.10],[0.28,0.20,0.18,0.10],[0.52,0.20,0.14,0.10],[0.72,0.18,0.18,0.12],
+    [0.05,0.35,0.14,0.10],[0.22,0.35,0.14,0.10],[0.40,0.35,0.14,0.10],[0.60,0.35,0.18,0.10],
+    [0.05,0.50,0.20,0.10],[0.28,0.50,0.14,0.10],[0.05,0.65,0.20,0.10],[0.28,0.65,0.18,0.10],
+    [0.50,0.50,0.20,0.25],[0.72,0.50,0.18,0.10],[0.72,0.65,0.18,0.10],
+    [0.05,0.80,0.18,0.10],[0.28,0.80,0.18,0.10],[0.50,0.80,0.14,0.10],[0.68,0.80,0.18,0.10],
+  ];
+  macros.forEach(([rx, ry, rw, rh]) => {
+    const x = pad + rx * cw, y = pad + ry * ch;
+    const w = rw * cw, h = rh * ch;
+    ctx.fillStyle = 'rgba(100,200,80,0.75)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#3a8c20';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, h);
+  });
+
+  // one red blockage macro
+  ctx.fillStyle = 'rgba(180,30,30,0.75)';
+  ctx.fillRect(pad + 0.04 * cw, pad + 0.38 * ch, 0.03 * cw, 0.25 * ch);
+  ctx.strokeStyle = '#8b0000';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pad + 0.04 * cw, pad + 0.38 * ch, 0.03 * cw, 0.25 * ch);
+
+  // die border
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(pad, pad, cw, ch);
+}
+
+// ═══════════════ HEATMAP VIEW ═══════════════
+function drawHeatmap() {
+  const W = canvas.width, H = canvas.height;
+  const pad = 20, cw = W - 2*pad, ch = H - 2*pad;
+  const cols = 30, rows = 28;
+  const cw2 = cw / cols, ch2 = ch / rows;
+
+  // grey background
+  ctx.fillStyle = '#888';
+  ctx.fillRect(0, 0, W, H);
+
+  // density seed (hot centre)
+  const seed = [
+    [15,14,0.98],[14,13,0.95],[15,13,0.92],[16,14,0.9],[15,15,0.88],[13,14,0.85],
+    [12,13,0.82],[14,15,0.8],[16,13,0.78],[17,14,0.75],[13,12,0.72],[11,14,0.7],
+    [15,12,0.68],[18,14,0.65],[10,13,0.6],[12,15,0.58],[14,11,0.55],[19,13,0.5],
+    [16,16,0.5],[8,14,0.45],[20,14,0.42],[13,16,0.4],[15,11,0.38],
+  ];
+  const grid = [];
+  for (let r = 0; r < rows; r++) { grid[r] = []; for (let c = 0; c < cols; c++) grid[r][c] = Math.random() * 0.22; }
+  seed.forEach(([c, r, v]) => { if (grid[r] && grid[r][c] !== undefined) grid[r][c] = v; });
+  // neighbour blur
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    let s = grid[r][c], n = 1;
+    [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
+      const nr=r+dr, nc=c+dc;
+      if (grid[nr] && grid[nr][nc] !== undefined) { s += grid[nr][nc] * 0.4; n += 0.4; }
+    });
+    grid[r][c] = Math.min(1, s / n);
+  }
+
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const v = grid[r][c];
+    ctx.fillStyle = heatColor(v);
+    ctx.fillRect(pad + c * cw2, pad + r * ch2, cw2, ch2);
+  }
+
+  // some macroblocks (purple) at edges
+  const macroZones = [[0,22,6,6],[24,0,6,6],[0,0,5,5]];
+  macroZones.forEach(([c, r, w, h]) => {
+    ctx.fillStyle = 'rgba(80,40,130,0.7)';
+    ctx.fillRect(pad + c * cw2, pad + r * ch2, w * cw2, h * ch2);
+  });
+
+  // colour legend bar
+  const lgX = W - pad - 14, lgH = ch;
+  for (let i = 0; i < lgH; i++) {
+    ctx.fillStyle = heatColor(1 - i / lgH);
+    ctx.fillRect(lgX + pad - 4, pad + i, 12, 1);
+  }
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 0.5;
+  ctx.strokeRect(lgX + pad - 4, pad, 12, lgH);
+  ['1.0','0.5','0.0'].forEach((lbl, i) => {
+    ctx.fillStyle = '#fff'; ctx.font = '9px JetBrains Mono';
+    ctx.fillText(lbl, lgX + pad - 20, pad + i * (lgH / 2) + 3);
+  });
+}
+
+function heatColor(v) {
+  // green → yellow → orange → red → dark red
+  if (v < 0.25) { const t = v / 0.25; return `rgb(${Math.round(t*180)},${Math.round(150+t*80)},${Math.round(80-t*80)})`; }
+  if (v < 0.5)  { const t = (v-0.25)/0.25; return `rgb(${Math.round(180+t*60)},${Math.round(230-t*80)},0)`; }
+  if (v < 0.75) { const t = (v-0.5)/0.25; return `rgb(${Math.round(240+t*15)},${Math.round(150-t*100)},0)`; }
+  { const t = (v-0.75)/0.25; return `rgb(${Math.round(255-t*80)},${Math.round(50-t*40)},0)`; }
+}
+
+// ═══════════════ CTS VIEW ═══════════════
+function drawCTS(t) {
+  const W = canvas.width, H = canvas.height;
+  const pad = 20, cw = W - 2*pad, ch = H - 2*pad;
+
+  ctx.fillStyle = '#b0b0b0';
+  ctx.fillRect(0, 0, W, H);
+
+  // underlying grey cells
+  const cols = 50, rows = 44;
+  const cw2 = cw/cols, ch2 = ch/rows;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    ctx.fillStyle = (r+c)%2===0 ? '#b8b8b8' : '#a8a8a8';
+    ctx.fillRect(pad+c*cw2, pad+r*ch2, cw2, ch2);
+  }
+
+  // clock tree nets (coloured "star" fans from random sinks)
+  const colors = ['#ff3030','#ff8c00','#ffd700','#32cd32','#00bfff'];
+  const clusters = [
+    {cx:0.25,cy:0.3,color:'#ff3030',sinks:12},
+    {cx:0.55,cy:0.25,color:'#ff8c00',sinks:10},
+    {cx:0.75,cy:0.55,color:'#ffd700',sinks:9},
+    {cx:0.3, cy:0.65,color:'#32cd32',sinks:11},
+    {cx:0.6, cy:0.7, color:'#ff3030',sinks:8},
+    {cx:0.15,cy:0.5, color:'#ff8c00',sinks:7},
+    {cx:0.45,cy:0.48,color:'#32cd32',sinks:9},
+  ];
+
+  clusters.forEach(({cx, cy, color, sinks}) => {
+    const ox = pad + cx * cw, oy = pad + cy * ch;
+    // animate sinks with slight pulsation
+    for (let i = 0; i < sinks; i++) {
+      const angle = (i / sinks) * Math.PI * 2 + t * 0.008;
+      const dist   = (0.06 + Math.random() * 0.12) * Math.min(cw, ch);
+      const ex = ox + Math.cos(angle) * dist;
+      const ey = oy + Math.sin(angle) * dist;
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 1.2;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath();
+      // branching line
+      const mx = ox + (ex - ox) * 0.5, my = oy;
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(mx, my);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      // leaf dot
+      ctx.fillStyle   = color;
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // root dot
+    ctx.fillStyle   = '#ffffff';
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+function animateCTS() {
+  tick++;
+  drawCTS(tick);
+  animFrame = requestAnimationFrame(animateCTS);
+}
+
+// ═══════════════ CLOCK TREE PANEL ═══════════════
+function drawClockTree() {
+  const cv = document.getElementById('clockTreeCanvas');
+  const cx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  cx.clearRect(0, 0, W, H);
+  cx.fillStyle = '#1a1a1a';
+  cx.fillRect(0, 0, W, H);
+
+  // draw a simplified clock tree diagram
+  const levels = [
+    [{x:150,y:20,label:''}],
+    [{x:80,y:70,label:''},{x:220,y:70,label:''}],
+    [{x:40,y:130,label:''},{x:120,y:130,label:''},{x:180,y:130,label:''},{x:260,y:130,label:''}],
+  ];
+  // leaf rows
+  const leafY = 185;
+  const leaves = [];
+  for (let i = 0; i < 12; i++) leaves.push({x: 15 + i * 24, y: leafY});
+
+  cx.strokeStyle = '#0078d4';
+  cx.lineWidth = 1;
+
+  // root to level1
+  levels[0].forEach(n => {
+    levels[1].forEach(child => {
+      cx.beginPath(); cx.moveTo(n.x, n.y+6); cx.lineTo(child.x, child.y-6); cx.stroke();
+    });
+  });
+  // level1 to level2
+  levels[1].forEach((n,i) => {
+    const children = levels[2].slice(i*2, i*2+2);
+    children.forEach(child => {
+      cx.beginPath(); cx.moveTo(n.x, n.y+6); cx.lineTo(child.x, child.y-6); cx.stroke();
+    });
+  });
+  // level2 to leaves
+  levels[2].forEach((n,i) => {
+    const leavesSlice = leaves.slice(i*3, i*3+3);
+    leavesSlice.forEach(lf => {
+      cx.beginPath(); cx.moveTo(n.x, n.y+6); cx.lineTo(lf.x, lf.y-5); cx.stroke();
+    });
+  });
+
+  // draw nodes
+  const drawNode = (nx, ny, color) => {
+    cx.fillStyle = color;
+    cx.beginPath(); cx.arc(nx, ny, 5, 0, Math.PI*2); cx.fill();
+  };
+  levels[0].forEach(n => drawNode(n.x, n.y, '#32cd32'));
+  levels[1].forEach(n => drawNode(n.x, n.y, '#0078d4'));
+  levels[2].forEach(n => drawNode(n.x, n.y, '#0078d4'));
+  leaves.forEach(lf   => drawNode(lf.x, lf.y, '#ff6060'));
+
+  // timing labels
+  cx.fillStyle = '#858585'; cx.font = '9px JetBrains Mono';
+  cx.fillText('0.00 ns', 4, 22);
+  cx.fillText('1.00 ns', 4, 80);
+  cx.fillText('1.704 ns', 4, 138);
+  cx.fillText('2.00 ns', 4, 192);
+
+  // horizontal guide lines
+  cx.strokeStyle = 'rgba(255,255,255,0.1)'; cx.lineWidth = 0.5;
+  [20,70,130,185].forEach(y => {
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
+  });
+}
+
+function updateClockTree() { drawClockTree(); }
+
+// ═══════════════ HIERARCHY TABLE ═══════════════
+function buildHierarchy(view) {
+  const body = document.getElementById('hierBody');
+  const rows = view === 'macro' ? [
+    ['▼ <span style="color:#f44747">■</span> &lt;top&gt;','ariane','—','—','—'],
+    ['&nbsp;&nbsp;▶ csr_regfile_i','csr_regfile_000…','—','—','—'],
+    ['&nbsp;&nbsp;▶ ex_stage_i','ex_stage','—','—','—'],
+    ['&nbsp;&nbsp;▶ i_cache_subsystem','std_cache…','—','—','—'],
+    ['&nbsp;&nbsp;▶ i_frontend','frontend_000…','—','—','—'],
+    ['&nbsp;&nbsp;▶ i_perf_counters','perf_counters','—','—','—'],
+    ['&nbsp;&nbsp;▶ issue_stage_i','issue_stage…','—','—','—'],
+    ['&nbsp;&nbsp;&nbsp;&nbsp;Leaf instances','','—','—','—'],
+    ['&nbsp;&nbsp;&nbsp;&nbsp;Physical only','','—','—','—'],
+  ] : [
+    ['▼ <span style="color:#f44747">■</span> &lt;top&gt;','ibex_core','14,335 / 14,335','0/0','0/0'],
+    ['&nbsp;&nbsp;&nbsp;&nbsp;Leaf instances','','14,335','0','—'],
+    ['&nbsp;&nbsp;&nbsp;&nbsp;Physical only','','3,939','0','—'],
+  ];
+  body.innerHTML = rows.map(r =>
+    `<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+// ═══════════════ HEATMAP TREE TOGGLE ═══════════════
+function toggleHeatmaps() {
+  const sub = document.getElementById('heatmapSub');
+  const arrow = document.getElementById('heatArrow');
+  const open = sub.style.display === 'none';
+  sub.style.display = open ? 'block' : 'none';
+  arrow.textContent = open ? '▼' : '▶';
+}
+
+function toggleClockTreeTab() {
+  document.querySelectorAll('.btab').forEach(b => b.classList.remove('active'));
+  document.getElementById('btab-clock').classList.add('active');
+  setView('cts');
+}
+
+// ═══════════════ TCL SCRIPTING ═══════════════
+const output = document.getElementById('scriptOutput');
+
+function log(text, cls='log-normal') {
+  const d = document.createElement('div');
+  d.className = 'log-line ' + cls;
+  d.innerHTML = text;
+  output.appendChild(d);
+  output.scrollTop = output.scrollHeight;
+}
+
+function runTcl() {
+  const input = document.getElementById('tclInput');
+  const cmd = input.value.trim();
+  if (!cmd) return;
+  log('<span style="color:#569cd6">%</span> ' + cmd);
+  input.value = '';
+  // simulate responses
+  if (cmd.includes('floorplan') || cmd.includes('initialize_floorplan')) {
+    setTimeout(()=>{ log('[INFO FP] Floorplan initialized. Die area: 924 x 924 um', 'log-info'); setView('floorplan'); }, 300);
+  } else if (cmd.includes('global_placement') || cmd.includes('gpl')) {
+    setTimeout(()=>{ log('[INFO GPL] Running global placement...', 'log-info');
+      setTimeout(()=>{ log('[INFO GPL]   HPWL: 1.204e+06, overflow: 0.09', 'log-info'); setView('heatmap'); }, 800); }, 300);
+  } else if (cmd.includes('clock_tree') || cmd.includes('cts')) {
+    setTimeout(()=>{ log('[INFO CTS] Running clock tree synthesis...', 'log-info');
+      setTimeout(()=>{ log('[INFO CTS]   Clock: core_clock | Skew: 0.08 ns | Depth: 4', 'log-info'); setView('cts'); }, 800); }, 300);
+  } else if (cmd.includes('report')) {
+    setTimeout(()=>{ log('[RPT] WNS: -0.12 ns  TNS: -4.55 ns  Violating paths: 3', 'log-warn'); }, 300);
+  } else if (cmd.includes('detailed_route') || cmd.includes('route')) {
+    setTimeout(()=>{ log('[INFO DRT] Detailed routing... pass 1', 'log-info');
+      setTimeout(()=>{ log('[INFO DRT] DRC violations: 0  Completed.', 'log-info'); }, 1000); }, 300);
+  } else {
+    setTimeout(()=>{ log('[WARNING] Unknown command: ' + cmd, 'log-warn'); }, 200);
+  }
+}
+
+function handleTcl(e) { if (e.key === 'Enter') runTcl(); }
+
+// ── Mouse coords on canvas ──────────────────────
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = (e.clientX - r.left).toFixed(0);
+  const my = (e.clientY - r.top).toFixed(0);
+  document.getElementById('statusCoords').textContent = `x: ${mx}  y: ${my}`;
+});
+
+// ═══════════════ STARTUP ═══════════════
+window.addEventListener('load', () => {
+  resizeCanvas();
+
+  // startup logs
+  log('OpenROAD v2.0-8870-g8aabb2ef8', 'log-info');
+  log('This program is licensed under the BSD-3 license. See the LICENSE file for details.');
+  log('Components of this program may be licensed under more restrictive licenses which must be honored.');
+
+  setTimeout(() => log('[WARNING STA-0040] /platforms/nangate45/lib/fakeram45_256x16.lib line 10, unknown unit suffix nw.', 'log-warn'), 600);
+  setTimeout(() => log('[WARNING GUI-0066] Heat map "IR Drop" has not been populated with data.', 'log-warn'), 900);
+
+  buildHierarchy('floorplan');
+  setView('floorplan');
+
+  // toolbar button cursor
+  document.querySelectorAll('.tb-btn, .menu-btn, .btab, .run-btn').forEach(b => b.style.cursor = 'pointer');
+});
+</script>
+</body>
+</html>

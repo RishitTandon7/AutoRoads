@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+ENV/
+env/
+# OpenROAD results
+or_results/
+results/
+tmp*/
+flow.tcl
+load_gui*.tcl
+*.log
+*.rpt
+*.odb
+*.def
+*.gds
+*.db
+!mock_pdk/
+# Large mock data
+mock_pdk/

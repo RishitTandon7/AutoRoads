@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoROAD | EDA Intelligence</title>
+  <meta name="description" content="AI-powered assistant for OpenROAD EDA — explain commands, generate Tcl scripts, debug errors, execute flows." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,300;0,6..96,400;0,6..96,600;1,6..96,300;1,6..96,400&family=Inter:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ── Post-processing overlays ── -->
+  <div class="noise"></div>
+  <div class="vignette"></div>
+  <div class="lens-flare" id="lensFlare"></div>
+
+  <!-- ── Three.js canvas ── -->
+  <div id="canvas-bg"></div>
+
+  <!-- ── Custom cursor ── -->
+  <div class="cursor-dot" id="cursorDot"></div>
+  <div class="cursor-outline" id="cursorOutline"></div>
+
+  <!-- ════════════════════ PRELOADER ════════════════════ -->
+  <div class="preloader" id="preloader">
+    <div class="pre-inner">
+      <div class="pre-brand">AUTOROAD</div>
+      <div class="pre-count" id="preCount">00</div>
+      <div class="pre-bar-wrap"><div class="pre-bar" id="preBar"></div></div>
+      <div class="pre-label">Initializing EDA Intelligence</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════ APP ════════════════════ -->
+  <div class="app" id="app" style="opacity:0;">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <div class="logo-mark">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <rect width="26" height="26" rx="5" fill="url(#lg)" />
+            <rect x="5"  y="5"  width="5" height="5" rx="1" fill="white" opacity="0.9"/>
+            <rect x="14" y="5"  width="5" height="5" rx="1" fill="white" opacity="0.9"/>
+            <rect x="5"  y="14" width="5" height="5" rx="1" fill="white" opacity="0.9"/>
+            <rect x="14" y="14" width="5" height="5" rx="1" fill="white" opacity="0.3"/>
+            <line x1="10" y1="7.5" x2="14" y2="7.5" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="7.5" y1="10" x2="7.5" y2="14" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="16.5" y1="10" x2="16.5" y2="14" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="lg" x1="0" y1="0" x2="26" y2="26">
+                <stop offset="0%" stop-color="#c5a059"/>
+                <stop offset="100%" stop-color="#8b6a30"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">AutoROAD</span>
+          <span class="logo-sub">EDA Intelligence</span>
+        </div>
+      </div>
+
+      <!-- Modes -->
+      <nav class="nav-modes">
+        <span class="nav-label">Mode</span>
+        <button class="nav-btn active" onclick="setMode('search',this)">
+          <span class="nav-icon">◈</span><span class="nav-text">Doc Search</span>
+        </button>
+        <button class="nav-btn" onclick="setMode('explain',this)">
+          <span class="nav-icon">◎</span><span class="nav-text">Explain</span>
+        </button>
+        <button class="nav-btn" onclick="setMode('generate_script',this)">
+          <span class="nav-icon">◆</span><span class="nav-text">Script Gen</span>
+        </button>
+        <button class="nav-btn" onclick="setMode('debug',this)">
+          <span class="nav-icon">⬡</span><span class="nav-text">Debug</span>
+        </button>
+        <button class="nav-btn" onclick="setMode('flow',this)">
+          <span class="nav-icon">◉</span><span class="nav-text">Flow Guide</span>
+        </button>
+      </nav>
+
+      <!-- Quick Prompts -->
+      <div class="nav-section">
+        <span class="nav-label">Quick Access</span>
+        <div id="quickPrompts" class="quick-list"></div>
+      </div>
+
+      <!-- Status -->
+      <div class="nav-section status-section">
+        <span class="nav-label">System</span>
+        <div class="status-row">
+          <span class="sdot" id="ragDot"></span>
+          <span class="slabel">RAG Engine</span>
+          <span class="sval" id="ragStatus">—</span>
+        </div>
+        <div class="status-row">
+          <span class="sdot" id="ollamaDot"></span>
+          <span class="slabel">Ollama LLM</span>
+          <span class="sval" id="ollamaStatus">—</span>
+        </div>
+        <div class="status-row">
+          <span class="sdot dot-ok"></span>
+          <span class="slabel">Docs Loaded</span>
+          <span class="sval" id="docCount">—</span>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <a href="https://openroad.readthedocs.io" target="_blank" class="footer-link">Docs</a>
+        <a href="https://github.com/The-OpenROAD-Project/OpenROAD" target="_blank" class="footer-link">GitHub</a>
+      </div>
+
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="main" id="main">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <button class="icon-btn" onclick="toggleSidebar()" title="Toggle sidebar" id="menuBtn">
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="none">
+            <line x1="0" y1="1" x2="18" y2="1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="0" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="0" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <span class="topbar-title" id="topbarTitle">Documentation Search</span>
+        <span class="mode-pill" id="modeBadge">◈ Search</span>
+        <div class="topbar-spacer"></div>
+        <button class="icon-btn danger" onclick="clearChat()" title="Clear conversation">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-.9 14a2 2 0 01-2 1.9H7.9A2 2 0 015.9 20L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+      </header>
+
+      <!-- Hero (empty state) -->
+      <div class="hero" id="hero">
+        <div class="hero-inner">
+          <div class="hero-eyebrow">RTL → GDSII · Local AI · No Cloud</div>
+          <h1 class="hero-title" id="heroTitle">
+            <span>A</span><span>u</span><span>t</span><span>o</span><span>R</span><span>O</span><span>A</span><span>D</span>
+          </h1>
+          <p class="hero-sub">Ask anything about OpenROAD — commands, Tcl scripts, errors, or the full chip design flow.</p>
+          <div class="chip-row">
+            <button class="chip" onclick="usePrompt('How do I run global placement in OpenROAD?')">Global Placement</button>
+            <button class="chip" onclick="usePrompt('Generate a complete floorplanning Tcl script for sky130')">Floorplanning Script</button>
+            <button class="chip" onclick="usePrompt('Explain clock tree synthesis')">Clock Tree Synthesis</button>
+            <button class="chip" onclick="usePrompt('How to fix DRC violations after routing?')">Debug DRC</button>
+            <button class="chip" onclick="usePrompt('Walk me through the full RTL-to-GDSII flow')">Full Flow</button>
+          </div>
+          <!-- Flow pipeline -->
+          <div class="flow-pipe">
+            <div class="pipe-step done" onclick="usePrompt('How do I perform RTL synthesis with Yosys?')"><span>01</span><b>Synthesis</b></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step done" onclick="usePrompt('How do I use initialize_floorplan?')"><span>02</span><b>Floorplan</b></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step active" onclick="usePrompt('How do I run global placement?')"><span>03</span><b>Placement</b></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step" onclick="usePrompt('How does clock_tree_synthesis work?')"><span>04</span><b>CTS</b></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step" onclick="usePrompt('How to run detailed routing?')"><span>05</span><b>Routing</b></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-step" onclick="usePrompt('How to write the final GDSII file?')"><span>06</span><b>GDSII</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="chat" id="chatContainer"></div>
+
+      <!-- Debug panel -->
+      <div class="debug-panel" id="debugPanel">
+        <div class="debug-inner">
+          <div class="debug-label-col">
+            <div class="debug-label-top">◈ Log Analysis</div>
+            <div class="debug-label-sub">Paste an OpenROAD error or log output to get a root-cause diagnosis.</div>
+          </div>
+          <div class="debug-textarea-col">
+            <textarea id="logInput" class="debug-textarea" placeholder="Paste your error or log output here…"></textarea>
+          </div>
+          <div class="debug-btn-col">
+            <button class="debug-submit" onclick="submitDebug()">Analyze Error</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input dock -->
+      <div class="input-dock" id="inputArea">
+        <div class="input-box">
+          <span class="input-pill" id="modeBadgeInput">◈</span>
+          <textarea id="queryInput" class="input-field"
+            placeholder="Ask about OpenROAD commands, scripts, errors…"
+            rows="1" onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+          <div class="input-right">
+            <label class="results-label">K
+              <select id="topK" class="results-select">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="8">8</option>
+              </select>
+            </label>
+            <button class="send-btn" id="sendBtn" onclick="sendQuery()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; ⚡ Run All executes all blocks</p>
+      </div>
+
+    </main>
+  </div><!-- /app -->
+
+  <script src="/static/app.js"></script>
+
+  <script>
+    /* ═══════════════════════════════════════════════════
+       AUTOROAD OBLIVION — Cinematic Engine
+    ═══════════════════════════════════════════════════ */
+
+    // ── Three.js Starfield ──────────────────────────────
+    (function initStarfield() {
+      const container = document.getElementById('canvas-bg');
+      const W = window.innerWidth, H = window.innerHeight;
+      const scene    = new THREE.Scene();
+      const camera   = new THREE.PerspectiveCamera(70, W / H, 0.1, 2000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // Stars
+      const N = 5000;
+      const pos = new Float32Array(N * 3);
+      for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - 0.5) * 2000;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat   = new THREE.PointsMaterial({ size: 1.2, color: 0xffffff, transparent: true, opacity: 0.35 });
+      const stars = new THREE.Points(geo, mat);
+      scene.add(stars);
+
+      // Golden dust layer
+      const N2 = 800;
+      const pos2 = new Float32Array(N2 * 3);
+      for (let i = 0; i < N2 * 3; i++) pos2[i] = (Math.random() - 0.5) * 1200;
+      const geo2  = new THREE.BufferGeometry();
+      geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
+      const mat2   = new THREE.PointsMaterial({ size: 2.2, color: 0xc5a059, transparent: true, opacity: 0.25 });
+      const dust   = new THREE.Points(geo2, mat2);
+      scene.add(dust);
+
+      camera.position.z = 900;
+
+      let mx = 0, my = 0;
+      window.addEventListener('mousemove', e => {
+        mx = (e.clientX / window.innerWidth  - 0.5) * 0.3;
+        my = (e.clientY / window.innerHeight - 0.5) * 0.3;
+      });
+
+      (function loop() {
+        requestAnimationFrame(loop);
+        stars.rotation.y += 0.0003;
+        stars.rotation.x += 0.0001;
+        dust.rotation.y  -= 0.0005;
+        camera.position.x += (mx * 80 - camera.position.x) * 0.02;
+        camera.position.y += (-my * 80 - camera.position.y) * 0.02;
+        renderer.render(scene, camera);
+      })();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    })();
+
+    // ── Custom Cursor ────────────────────────────────────
+    const dot     = document.getElementById('cursorDot');
+    const outline = document.getElementById('cursorOutline');
+    let mx = 0, my = 0, ox = 0, oy = 0;
+    window.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    (function cursorLoop() {
+      ox += (mx - ox) * 0.12;
+      oy += (my - oy) * 0.12;
+      dot.style.transform     = `translate(${mx - 3}px, ${my - 3}px)`;
+      outline.style.transform = `translate(${ox - 20}px, ${oy - 20}px)`;
+      requestAnimationFrame(cursorLoop);
+    })();
+
+    document.querySelectorAll('a,button,.chip,.nav-btn,.quick-btn,.pipe-step').forEach(el => {
+      el.addEventListener('mouseenter', () => outline.classList.add('cursor-hover'));
+      el.addEventListener('mouseleave', () => outline.classList.remove('cursor-hover'));
+    });
+
+    // ── Lens flare follows mouse ─────────────────────────
+    window.addEventListener('mousemove', e => {
+      document.getElementById('lensFlare').style.background =
+        `radial-gradient(circle at ${e.clientX}px ${e.clientY}px, rgba(197,160,89,0.05) 0%, transparent 35%)`;
+    });
+
+    // ── Preloader ────────────────────────────────────────
+    let pct = 0;
+    const countEl = document.getElementById('preCount');
+    const barEl   = document.getElementById('preBar');
+
+    const ticker = setInterval(() => {
+      pct += Math.floor(Math.random() * 5) + 1;
+      if (pct >= 100) { pct = 100; clearInterval(ticker); launch(); }
+      countEl.textContent = pct < 10 ? '0' + pct : '' + pct;
+      barEl.style.width   = pct + '%';
+    }, 40);
+
+    function launch() {
+      const tl = gsap.timeline();
+      tl.to('#preloader', { yPercent: -100, duration: 1.4, ease: 'power4.inOut' })
+        .to('#app', { opacity: 1, duration: 0.4 }, '-=0.6')
+        .from('#heroTitle span', {
+          y: 120,
+          opacity: 0,
+          stagger: 0.06,
+          duration: 1.6,
+          ease: 'expo.out'
+        }, '-=0.2')
+        .from('.hero-eyebrow', { opacity: 0, y: 20, duration: 0.8 }, '-=0.8')
+        .from('.hero-sub',     { opacity: 0, y: 20, duration: 0.8 }, '-=0.6')
+        .from('.chip-row',     { opacity: 0, y: 20, duration: 0.8 }, '-=0.5')
+        .from('.flow-pipe',    { opacity: 0, y: 20, duration: 0.8 }, '-=0.4')
+        .from('.sidebar',      { xPercent: -100, duration: 1,   ease: 'power4.out' }, 0.2)
+        .from('.topbar',       { yPercent: -100, opacity: 0, duration: 0.8, ease: 'power3.out' }, 0.5)
+        .from('.input-dock',   { yPercent: 100, opacity: 0, duration: 0.8,  ease: 'power3.out' }, 0.6);
+    }
+  </script>
+
+</body>
+</html>
