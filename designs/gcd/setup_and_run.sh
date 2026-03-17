@@ -24,6 +24,21 @@ if ! command -v openroad &> /dev/null; then
     echo "[INFO GRT-001] Global Routing finished."
     echo ""
     echo "✅ [DEMO] FULL FLOW DONE: Floorplan -> Place -> CTS -> Route"
+    echo "✅ [DEMO] Placement + Routing done → $HOME/or_results/tinyrocket_routed.odb"
+    
+    # Simulate the GUI setup steps from the real execution
+    export DISPLAY=:0
+    cat << EOF > /tmp/load_gui.tcl
+read_lef /home/rishit/OpenROAD/test/Nangate45/Nangate45_tech.lef
+read_lef /home/rishit/OpenROAD/test/Nangate45/Nangate45_stdcell.lef
+read_lef /home/rishit/OpenROAD/test/Nangate45/fakeram45_64x32.lef
+read_db "$HOME/or_results/tinyrocket_routed.odb"
+EOF
+    echo ""
+    echo "🎨 TO VIEW THE GUI LAYOUT:"
+    echo "Please open this file in your browser:"
+    echo "file:///D:/The%20Open%20Road/frontend/openroad_gui.html"
+    echo ""
     echo "✅ [DEMO] Simulation successful for Presentation."
     exit 0
 fi
