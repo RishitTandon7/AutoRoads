@@ -8,7 +8,9 @@ set -e   # stop on first error
 
 # ── Check OpenROAD is installed ──────────────────────────────
 if ! command -v openroad &> /dev/null; then
-    echo "❌ ERROR: openroad not found in PATH."
+    echo "❌ ERROR: openroad not found inside WSL."
+    echo "👉 To fix this, run this command in your WSL terminal:"
+    echo "   sudo apt-get update && sudo apt-get install -y openroad"
     exit 1
 fi
 echo "✅ OpenROAD found: $(openroad -version 2>&1 | head -1)"
