@@ -1,48 +1,54 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 :: ============================================================
-:: 🚀 AutoRoads - TinyRocket WSL Runner (with Demo Fallback)
+:: 🚀 AutoRoads - TinyRocket Indestructible Runner
 :: ============================================================
 
-echo 🔍 Checking environment...
+echo 🔍 Checking Environment...
 
-:: Check if WSL is ready
-wsl --list --running >nul 2>&1
-if %errorlevel% neq 0 goto :DEMO_MODE
+:: 1. Check if WSL is even installed on Windows
+where wsl >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️  wsl.exe not found in Windows PATH.
+    goto :DEMO_MODE
+)
 
-:: Check if OpenROAD is installed
-wsl command -v openroad >nul 2>&1
-if %errorlevel% neq 0 goto :DEMO_MODE
+:: 2. Try a test command. If it fails (needs restart), go to Demo.
+wsl echo "testing" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️  WSL is installed but not responsive (likely needs restart).
+    goto :DEMO_MODE
+)
 
 :REAL_MODE
-echo ✅ Environment Ready. Starting REAL OpenROAD Flow...
+echo ✅ WSL is active. Attempting REAL OpenROAD Flow...
+:: Clean line endings
 wsl sed -i "s/\r$//" designs/gcd/setup_and_run.sh
+:: Execute
 wsl bash designs/gcd/setup_and_run.sh
+if %errorlevel% neq 0 (
+    echo.
+    echo ⚠️  Real execution failed. Switching to Presentation Mode...
+    goto :DEMO_MODE
+)
 pause
 exit /b
 
 :DEMO_MODE
-echo ⚠️  WSL/OpenROAD not fully active. 
-echo 🎭 ENTERING DEMO SIMULATION MODE...
+echo 🎭 ENTERING PRESENTATION DEMO MODE...
 echo.
 timeout /t 1 /nobreak >nul
-echo [INFO] Reading Technology LEF...
+echo [INFO] Loading Design: tinyRocket SoC...
 timeout /t 1 /nobreak >nul
-echo [INFO] Reading Design: tinyRocket SoC...
-timeout /t 2 /nobreak >nul
-echo [INFO] Performing Macro Placement (SRAM blocks)...
 echo [INFO MPL-001] Macro placement successful.
 timeout /t 2 /nobreak >nul
 echo [INFO GPL-001] Starting Global Placement...
-echo [INFO GPL-004] core_area {10 10 490 490}
 timeout /t 2 /nobreak >nul
 echo [INFO CTS-001] Clock tree synthesis complete.
 echo [INFO GRT-001] Global routing 100%% complete.
 echo.
 echo ✅ [DEMO] FULL FLOW DONE: Floorplan -> Place -> CTS -> Route
-echo ✅ [DEMO] Result saved to: results/tinyrocket_nangate/tinyrocket_routed.odb
-echo.
-echo NOTE: After presentation, remember to restart to enable REAL execution.
+echo ✅ [DEMO] Simulation successful for Presentation.
 pause
 exit /b
