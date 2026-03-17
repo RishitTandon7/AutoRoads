@@ -34,8 +34,11 @@ timeout /t 2 /nobreak >nul
 echo [INFO] Routing global power grid for wafer view...
 echo [INFO] Global Route: SUCCESS.
 echo.
-echo ✅ MPW WAFER GENERATED SUCCESSFULLY
-echo ✅ RESULT: designs/gcd/mpw_shuttle_wafer.odb (Ready for UI analysis)
+echo ✅ [PRESENTATION MODE] MPW SHUTTLE GENERATED SUCCESSFULLY
+echo Result: designs/gcd/mpw_shuttle_wafer.odb (Simulated)
 echo.
+echo 🎨 Launching Visualizer (GUI)...
+timeout /t 2 /nobreak >nul
+start "" "%~dp0frontend\openroad_gui.html"
 pause
 exit /b

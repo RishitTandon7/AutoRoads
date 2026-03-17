@@ -47,6 +47,9 @@ echo 🎭 LOADING TINYROCKET DEMO...
 timeout /t 1 /nobreak
 echo [INFO] Floorplan -> Place -> Route...
 echo ✅ [DEMO] Flow successful!
+echo 🎨 Launching Visualizer (GUI)...
+timeout /t 2 /nobreak >nul
+start "" "%~dp0frontend\openroad_gui.html"
 pause
 goto :MENU
 
@@ -63,6 +66,9 @@ goto :MENU
 :DEMO_MPW
 echo 🎭 LOADING MPW WAFER DEMO...
 echo ✅ [DEMO] Wafer simulation successful!
+echo 🎨 Launching Visualizer (GUI)...
+timeout /t 2 /nobreak >nul
+start "" "%~dp0frontend\openroad_gui.html"
 pause
 goto :MENU
 
@@ -73,5 +79,8 @@ timeout /t 1 /nobreak
 echo ✅ SoC Simulation: Done.
 echo ✅ Wafer Simulation: Done.
 start http://localhost:8000
+echo 🎨 Launching Visualizer (GUI)...
+timeout /t 2 /nobreak >nul
+start "" "%~dp0frontend\openroad_gui.html"
 pause
 goto :MENU

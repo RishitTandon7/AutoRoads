@@ -35,7 +35,11 @@ timeout /t 2 /nobreak >nul
 echo [INFO GRT-001] Global Route: 100%% complete.
 echo.
 echo ✅ FULL FLOW DONE: Floorplan -> Place -> CTS -> Route
-echo ✅ RESULT: designs/gcd/tinyrocket_routed.odb (Ready for UI analysis)
+echo ✅ [PRESENTATION MODE] FLOW COMPLETE
+echo Result: designs/gcd/tinyrocket_routed.odb (Simulated)
 echo.
+echo 🎨 Launching Visualizer (GUI)...
+timeout /t 2 /nobreak >nul
+start "" "%~dp0frontend\openroad_gui.html"
 pause
 exit /b
