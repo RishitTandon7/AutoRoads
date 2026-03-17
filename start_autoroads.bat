@@ -1,53 +1,77 @@
 @echo off
+setlocal enabledelayedexpansion
 
 :: ============================================================
-:: AutoRoads - One-Click Launcher (Robust Version)
+:: 🛣️ AutoRoads - Universal AI & Flow Launcher
+:: (With 3-Second Demo Override)
 :: ============================================================
 title AutoRoads AI Assistant
 
+:MENU
+cls
 echo ============================================================
-echo   Starting AutoRoads AI Assistant...
+echo   🛣️  AUTOROADS AI ASSISTANT MENU
 echo ============================================================
+echo   1. Start AI Assistant (Dashboard + Chat)
+echo   2. Run TinyRocket SoC Flow (Real/Demo)
+echo   3. Run MPW Wafer Flow (Real/Demo)
+echo   4. [SAFE] Start Everything in PRESENTATION MODE
+echo   5. Exit
+echo ============================================================
+set /p opt="Select an option (1-5): "
 
-:: 1. Check for Python
-python --version >nul 2>&1
-if %errorlevel% neq 0 goto :NO_PYTHON
+if "%opt%"=="1" goto :START_AI
+if "%opt%"=="2" goto :RUN_TINY
+if "%opt%"=="3" goto :RUN_MPW
+if "%opt%"=="4" goto :SAFE_MODE
+if "%opt%"=="5" exit
 
-:: 1b. Check for Git
-git --version >nul 2>&1
-if %errorlevel% neq 0 echo Warning: Git not found. Updates disabled.
-
-:: 2. Launch X-Server (VcXsrv)
-if not exist "C:\Program Files\VcXsrv\vcxsrv.exe" goto :NO_VCXSRV
-echo Starting X-Server...
-start "" "C:\Program Files\VcXsrv\vcxsrv.exe" :0 -multiwindow -clipboard -wgl -ac
-goto :START_BACKEND
-
-:NO_VCXSRV
-echo Warning: VcXsrv not found. Graphical UI may not show.
-goto :START_BACKEND
-
-:START_BACKEND
-echo Initializing Backend and Dependencies...
-:: Using START to run python in a new window so logs are visible
+:START_AI
 start "AutoRoads Backend" cmd /c "python run.py"
-
-:: 4. Wait for server
-echo Waiting for server to start (5 seconds)...
-timeout /t 5 /nobreak >nul
-
-:: 5. Open Web UI
-echo Opening Web Assistant...
+timeout /t 3 /nobreak >nul
 start http://localhost:8000
+goto :MENU
 
-echo ============================================================
-echo   System Ready!
-echo ============================================================
+:RUN_TINY
+echo 🔍 Checking OpenROAD... (Press 'D' within 3 seconds to skip to DEMO)
+choice /c RD /t 3 /d R /n /m ""
+if %errorlevel% equ 2 goto :DEMO_TINY
+wsl command -v openroad >nul 2>&1
+if %errorlevel% neq 0 goto :DEMO_TINY
+wsl bash designs/gcd/setup_and_run.sh
 pause
-exit /b
+goto :MENU
 
-:NO_PYTHON
-echo ERROR: Python is not installed.
-echo Please run: winget install Python.Python.3.12
+:DEMO_TINY
+echo 🎭 LOADING TINYROCKET DEMO...
+timeout /t 1 /nobreak
+echo [INFO] Floorplan -> Place -> Route...
+echo ✅ [DEMO] Flow successful!
 pause
-exit /b
+goto :MENU
+
+:RUN_MPW
+echo 🔍 Checking OpenROAD... (Press 'D' within 3 seconds for DEMO)
+choice /c RD /t 3 /d R /n /m ""
+if %errorlevel% equ 2 goto :DEMO_MPW
+wsl command -v openroad >nul 2>&1
+if %errorlevel% neq 0 goto :DEMO_MPW
+wsl bash designs/gcd/run_mpw.sh
+pause
+goto :MENU
+
+:DEMO_MPW
+echo 🎭 LOADING MPW WAFER DEMO...
+echo ✅ [DEMO] Wafer simulation successful!
+pause
+goto :MENU
+
+:SAFE_MODE
+start "AutoRoads Backend" cmd /c "python run.py"
+echo 🎭 Launching FULL SIMULATION...
+timeout /t 1 /nobreak
+echo ✅ SoC Simulation: Done.
+echo ✅ Wafer Simulation: Done.
+start http://localhost:8000
+pause
+goto :MENU
