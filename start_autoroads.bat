@@ -13,37 +13,35 @@ echo ============================================================
 :: 1. Check for Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ ERROR: Python is not installed or not in PATH.
-    echo Please install Python and try again.
+    echo ❌ ERROR: Python is not installed.
+    echo Fast install: winget install Python.Python.3.12
     pause
     exit /b
 )
 
+:: 1b. Check for Git (Optional but helpful)
+git --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️  WARNING: Git is not installed. You won't be able to update from GitHub.
+    echo Fast install: winget install Git.Git
+)
+
 :: 2. Launch X-Server (VcXsrv) if it exists
-:: This is needed for the OpenROAD GUI to appear
 if exist "C:\Program Files\VcXsrv\vcxsrv.exe" (
     echo 🎨 Starting X-Server (VcXsrv)...
     start "" "C:\Program Files\VcXsrv\vcxsrv.exe" :0 -multiwindow -clipboard -wgl -ac
 ) else (
-    echo ⚠️  WARNING: VcXsrv (X-Server) not found in C:\Program Files\VcXsrv.
-    echo Graphical layouts might not appear until you install it.
+    echo ⚠️  WARNING: VcXsrv (X-Server) not found.
 )
 
-:: 3. Start the Backend in a separate window
-:: (run.py will auto-install missing dependencies)
-echo 🐍 Initializing Backend and Dependencies...
+:: 3. Start the Backend
 start "AutoRoads Backend" cmd /c "python run.py"
 
-:: 4. Wait for server to initialize
-echo ⏳ Waiting for server to start (5 seconds)...
+:: 4. Wait for server
 timeout /t 5 /nobreak >nul
 
-:: 5. Open the Web UI
-echo 🌐 Opening Web Assistant at http://localhost:8000
+:: 5. Open Web UI
 start http://localhost:8000
 
-echo ============================================================
-echo   ✅ System Ready! 
-echo   Keep the "AutoRoads Backend" window open.
-echo ============================================================
+echo ✅ System Ready!
 pause
