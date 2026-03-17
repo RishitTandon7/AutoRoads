@@ -1,11 +1,20 @@
 # ============================================================
 #  Automatic Hierarchical Macro Placement & Routing
 #  Uses the tinyRocket RISC-V design + Nangate45 files 
-#  (Matches screenshot: Displays large SRAM Macro Blocks!)
 # ============================================================
 
-set TEST_DIR "/home/rishit/OpenROAD/test"
-set RESULTS "/home/rishit/or_results"
+# ── Portability Layer ────────────────────────────────────────
+if {[info exists env(PDK_ROOT)]} {
+    set TEST_DIR $env(PDK_ROOT)
+} else {
+    set TEST_DIR "/home/rishit/OpenROAD/test"
+}
+
+if {[info exists env(RESULTS_DIR)]} {
+    set RESULTS $env(RESULTS_DIR)
+} else {
+    set RESULTS "/home/rishit/or_results"
+}
 file mkdir $RESULTS
 
 # ── 1. Read Technology & Libraries ──────────
@@ -21,6 +30,7 @@ read_verilog $TEST_DIR/tinyRocket_nangate45.v
 link_design RocketTile
 
 # ── 3. Apply timing constraints ──────────────────────────────
+# Constraint file passed from shell script
 read_sdc /tmp/tinyrocket_simple.sdc
 
 # ── 4. Floorplan ─────────────────────────────────────────────
@@ -41,17 +51,15 @@ place_pins \
 puts "INFO FP: I/O pins placed."
 
 # ── 7. Hierarchical Macro Placement ──────────────────────────
-# Macros (RAMs) MUST be placed before the Power layout is drawn!
 rtl_macro_placer -halo_width 22.4 -halo_height 15.12
 puts "INFO MPL: Macro placement complete."
 
 # ── 8. Power Distribution Network (PDN) ──────────────────────
-# Note: Nangate45 is 45nm, and PDN generation creates different domains
 add_global_connection -defer_connection -net {VDD} -inst_pattern {.*} -pin_pattern {^VDD$} -power
 add_global_connection -defer_connection -net {VDD} -inst_pattern {.*} -pin_pattern {^VDDPE$} -power
 add_global_connection -defer_connection -net {VDD} -inst_pattern {.*} -pin_pattern {^VDDCE$} -power
 add_global_connection -defer_connection -net {VSS} -inst_pattern {.*} -pin_pattern {^VSS$} -ground
-add_global_connection -defer_connection -net {VSS} -inst_pattern {.*} -pin_pattern {^VSSE$} -ground
+add_global_connection -defer_connection -net {VSS} -inst_pattern {.*} -pin_pattern {^VSSE$} ground
 global_connect
 
 source $TEST_DIR/Nangate45/Nangate45.pdn.tcl
@@ -59,7 +67,6 @@ pdngen
 puts "INFO PDN: Power grid generated."
 
 # ── 9. Global Placement ──────────────────────────────────────
-# Initialize RC for timing-driven placement
 source $TEST_DIR/Nangate45/Nangate45.rc
 set_wire_rc -layer metal3
 set_wire_rc -clock -layer metal6
@@ -82,7 +89,7 @@ puts "INFO CTS: Clock tree synthesis done."
 
 # ── 11. GLOBAL ROUTING (Generates Congestion Heatmap) ────────
 global_route -congestion_iterations 50
-puts "INFO GRT: Global routing executed (Congestion Maps available!)."
+puts "INFO GRT: Global routing executed."
 
 # ── 12. DETAILED ROUTING (Generates Physical Wire Layout) ────
 set_routing_layers -signal metal2-metal10

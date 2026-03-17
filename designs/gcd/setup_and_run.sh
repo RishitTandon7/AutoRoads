@@ -14,9 +14,14 @@ fi
 echo "✅ OpenROAD found: $(openroad -version 2>&1 | head -1)"
 
 # ── Output dirs ───────────────────────────────────────────────
-DESIGN_DIR="/mnt/d/The Open Road/designs/gcd"
-RESULTS_DIR="/home/rishit/or_results"
-WIN_RESULTS="/mnt/d/The Open Road/results/tinyrocket_nangate"
+# Determine PDK root - try to find it automatically
+if [ -z "$PDK_ROOT" ]; then
+    PDK_ROOT="$HOME/OpenROAD/test"
+fi
+
+DESIGN_DIR="$(cd "$(dirname "$0")" && pwd)"
+RESULTS_DIR="$HOME/or_results"
+WIN_RESULTS="$DESIGN_DIR/../../results/tinyrocket_nangate"
 mkdir -p "$RESULTS_DIR"
 mkdir -p "$WIN_RESULTS"
 
@@ -28,6 +33,10 @@ echo "  (Running tinyRocket: Shows large SRAM blocks!)"
 echo "═══════════════════════════════════════════════════"
 cp "$DESIGN_DIR/tinyrocket_full_route.tcl" /tmp/tinyrocket_route.tcl
 cp "$DESIGN_DIR/tinyrocket_simple.sdc" /tmp/tinyrocket_simple.sdc
+
+# Adjust paths in the TCL script to be portable
+sed -i "s|/home/rishit/OpenROAD/test|$PDK_ROOT|g" /tmp/tinyrocket_route.tcl
+sed -i "s|/home/rishit/or_results|$RESULTS_DIR|g" /tmp/tinyrocket_route.tcl
 
 openroad -no_init -exit /tmp/tinyrocket_route.tcl 2>&1 | tee "$RESULTS_DIR/tinyrocket_flow.log"
 
@@ -43,13 +52,13 @@ echo "════════════════════════�
 echo "  STEP 2: OpenROAD GUI (Showing Macro Blocks & Congestion)"
 echo "═══════════════════════════════════════════════════"
 export DISPLAY=:0
-cat << 'EOF' > /tmp/load_gui.tcl
-read_lef /home/rishit/OpenROAD/test/Nangate45/Nangate45_tech.lef
-read_lef /home/rishit/OpenROAD/test/Nangate45/Nangate45_stdcell.lef
-read_lef /home/rishit/OpenROAD/test/Nangate45/fakeram45_64x32.lef
-read_liberty /home/rishit/OpenROAD/test/Nangate45/Nangate45_typ.lib
-read_liberty /home/rishit/OpenROAD/test/Nangate45/fakeram45_64x32.lib
-read_db "/home/rishit/or_results/tinyrocket_routed.odb"
+cat << EOF > /tmp/load_gui.tcl
+read_lef $PDK_ROOT/Nangate45/Nangate45_tech.lef
+read_lef $PDK_ROOT/Nangate45/Nangate45_stdcell.lef
+read_lef $PDK_ROOT/Nangate45/fakeram45_64x32.lef
+read_liberty $PDK_ROOT/Nangate45/Nangate45_typ.lib
+read_liberty $PDK_ROOT/Nangate45/fakeram45_64x32.lib
+read_db "$RESULTS_DIR/tinyrocket_routed.odb"
 EOF
 openroad -gui /tmp/load_gui.tcl
 
